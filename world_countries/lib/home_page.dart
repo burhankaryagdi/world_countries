@@ -1,8 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:world_countries/ulke.dart';
+import 'package:world_countries/common_list.dart';
+import 'package:world_countries/country.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:world_countries/favorites.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,46 +20,44 @@ class _HomePageState extends State<HomePage> {
 
   List<Ulke> _butunUlkeler = [];
 
+  List<String> _favoriUlkeKodlari = [];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ulkeleriInternettenCek();
+      _favorileriCihazHafizasindanCek().then((value) {
+        _ulkeleriInternettenCek();
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
+    return Scaffold(appBar: _buildAppBar(context), body: _buildBody());
   }
 
-  AppBar _buildAppBar() {
+  AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.blueGrey,
       title: Text('World Countries', style: TextStyle(fontSize: 30)),
       centerTitle: true,
+      actions: [
+        IconButton(
+          color: Colors.red,
+          onPressed: () {
+            _favorilerSayfasiniAc(context);
+          },
+          icon: Icon(Icons.favorite),
+        ),
+      ],
     );
   }
 
   Widget _buildBody() {
     return _butunUlkeler.isEmpty
         ? Center(child: CircularProgressIndicator())
-        : ListView.builder(
-          itemBuilder: _buildListItem,
-          itemCount: _butunUlkeler.length,
-        );
-  }
-
-  Widget? _buildListItem(BuildContext context, int index) {
-    Ulke ulke = _butunUlkeler[index];
-    return Card(
-      child: ListTile(
-        title: Text(ulke.isim),
-        subtitle: Text("Başkent: ${ulke.baskent} "),
-        leading: CircleAvatar(backgroundImage: NetworkImage(ulke.bayrak)),
-        trailing: Icon(Icons.favorite_border, color: Colors.red),
-      ),
-    );
+        : OrtakListe(_butunUlkeler, _favoriUlkeKodlari);
   }
 
   void _ulkeleriInternettenCek() async {
@@ -73,5 +74,26 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() {});
+  }
+
+  Future<void> _favorileriCihazHafizasindanCek() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    List<String>? favoriler = prefs.getStringList("favoriler");
+
+    if (favoriler != null) {
+      for (String ulkeKodu in favoriler) {
+        _favoriUlkeKodlari.add(ulkeKodu);
+      }
+    }
+  }
+
+  void _favorilerSayfasiniAc(BuildContext context) {
+    MaterialPageRoute sayfaYolu = MaterialPageRoute(
+      builder: (context) {
+        return Favoriler(_butunUlkeler, _favoriUlkeKodlari);
+      },
+    );
+    Navigator.push(context, sayfaYolu);
   }
 }
